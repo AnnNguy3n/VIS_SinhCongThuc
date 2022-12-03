@@ -7,14 +7,10 @@ from numba.typed import List
 from colorama import Fore, Style
 import copy
 from datetime import datetime
-import time
 
 
 @njit
 def _get_valid_operand(formula, struct, idx, start, num_operand):
-    '''
-    Hạn chế hoán vị.
-    '''
     valid_operand = np.full(num_operand, 0)
     valid_operand[start:num_operand] = 1
 
@@ -31,14 +27,12 @@ def _get_valid_operand(formula, struct, idx, start, num_operand):
         if pre_op == 2:
             temp_idx = struct[gr_idx,2]
             if idx >= temp_idx + 2:
-                min_ = formula[idx-2]
-                valid_operand[0:min_] = 0
+                valid_operand[0:formula[idx-2]] = 0
         else:
             temp_idx = struct[gr_idx,2]
             temp_idx_1 = temp_idx + 2*struct[gr_idx,3]
             if idx > temp_idx_1 + 2:
-                min_ = formula[idx-2]
-                valid_operand[0:min_] = 0
+                valid_operand[0:formula[idx-2]] = 0
 
             """
             Tránh chia lại những toán hạng đã nhân ở trong cụm (chỉ phép chia mới check)
@@ -159,14 +153,71 @@ def _update_struct(struct):
     return False
 
 
+@njit
+def _njit_fill_operand(formula, struct, idx, temp_0, temp_op, temp_1, target, last_formula, operand, profit, index, list_formula, count):
+        start = -1
+        if (formula[0:idx]==last_formula[0:idx]).all():
+            start = last_formula[idx]
+        else:
+            start = 0
+
+        valid_operand = _get_valid_operand(formula, struct, idx, start, operand.shape[0])
+        if valid_operand.shape[0] > 0:
+            if formula[idx-1] < 2:
+                temp_op_new = formula[idx-1]
+                temp_1_new = operand[valid_operand].copy()
+            else:
+                temp_op_new = temp_op
+                if formula[idx-1] == 2:
+                    temp_1_new = temp_1 * operand[valid_operand]
+                else:
+                    temp_1_new = temp_1 / operand[valid_operand]
+
+            if idx + 1 == formula.shape[0] or formula[idx+1] < 2:
+                if temp_op_new == 0:
+                    temp_0_new = temp_0 + temp_1_new
+                else:
+                    temp_0_new = temp_0 - temp_1_new
+            else:
+                temp_0_new = np.zeros((valid_operand.shape[0], temp_0.shape[0])) + temp_0
+
+            if idx + 1 == formula.shape[0]:
+                for arr in temp_0_new:
+                    arr[np.isnan(arr)] = -1.7976931348623157e+308
+                    arr[np.isinf(arr)] = -1.7976931348623157e+308
+
+                temp_profits = _get_profits_by_weights(temp_0_new, profit, index)
+                valid_formula = np.where(temp_profits>=target)[0]
+                if valid_formula.shape[0] > 0:
+                    temp_list_formula = np.full((valid_formula.shape[0], formula.shape[0]), 0) + formula
+                    temp_list_formula[:,idx] = valid_operand[valid_formula]
+                    list_formula[count[0]:count[0]+valid_formula.shape[0]] = temp_list_formula
+                    count[0:3:2] += valid_formula.shape[0]
+
+                last_formula[:] = formula[:]
+                last_formula[idx] = operand.shape[0]
+
+                if count[0] >= count[1] or count[2] >= count[3]:
+                    return True
+            else:
+                temp_list_formula = np.full((valid_operand.shape[0], formula.shape[0]), 0) + formula
+                temp_list_formula[:,idx] = valid_operand
+                idx_new = idx + 2
+                for i in range(valid_operand.shape[0]):
+                    if _njit_fill_operand(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target, last_formula, operand, profit, index, list_formula, count):
+                        return True
+
+        return False
+
+
+
 class CompleteMethod(Method):
-    def __init__(self, data: pd.DataFrame, pathSaveFormula: str) -> None:
-        super().__init__(data, pathSaveFormula)
-        print(Fore.LIGHTYELLOW_EX+"Nếu dùng lần đầu, chạy phương thức <CompleteMethod_object>.readMe() để xem hướng dẫn.", Style.RESET_ALL)
+    def __init__(self, data: pd.DataFrame, pathSaveFormula: str, soChuKyTrain: int) -> None:
+        super().__init__(data, pathSaveFormula, soChuKyTrain)
 
 
     def readMe(self):
-        pass
+        print("Sinh vét cạn.")
 
 
     def __fill_operand(self, formula, struct, idx, temp_0, temp_op, temp_1, target):
@@ -205,7 +256,6 @@ class CompleteMethod(Method):
                     temp_list_formula = np.array([formula]*valid_formula.shape[0])
                     temp_list_formula[:,idx] = valid_operand[valid_formula]
                     self.__list_formula[self.__count[0]:self.__count[0]+valid_formula.shape[0]] = temp_list_formula
-                    self.__list_formula_profit[self.__count[0]:self.__count[0]+valid_formula.shape[0]] = temp_profits[valid_formula]
                     self.__count[0:3:2] += valid_formula.shape[0]
 
                 self.__current[5][:] = formula[:]
@@ -217,21 +267,25 @@ class CompleteMethod(Method):
                 temp_list_formula = np.array([formula]*valid_operand.shape[0])
                 temp_list_formula[:,idx] = valid_operand
                 idx_new = idx + 2
-                for i in range(valid_operand.shape[0]):
-                    if self.__fill_operand(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target):
-                        return True
+                if formula.shape[0] - 7 <= idx_new:
+                    for i in range(valid_operand.shape[0]):
+                        if _njit_fill_operand(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target, self.__current[5], self._Method__OPERAND, self._Method__PROFIT, self._Method__INDEX, self.__list_formula, self.__count):
+                            return True
+                else:
+                    for i in range(valid_operand.shape[0]):
+                        if self.__fill_operand(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target):
+                            return True
 
         return False
 
 
     def generate_formula(self, target_profit=1.0, formula_file_size=1000000, target_num_formula=1000000000):
         '''
-        Chạy vô hạn để sinh công thức:
         * target_profit: Lợi nhuận mong muốn.
         * formula_file_size: Số lượng công thức xấp xỉ trong mỗi file lưu trữ.
         * target_num_formula: Số công thức đạt điều kiện được sinh trong 1 lần chạy ko ngắt.
         '''
-        print(Fore.LIGHTYELLOW_EX+"Khi ngắt thì cần tự chạy phương thức <CompleteMethod_object>.save_history() để lưu lịch sử.", Style.RESET_ALL)
+        print(Fore.LIGHTYELLOW_EX+"Khi ngắt bằng tay thì cần tự chạy phương thức <CompleteMethod_object>.save_history() để lưu lịch sử.", Style.RESET_ALL)
 
         try:
             temp = np.load(self.path+"history.npy", allow_pickle=True)
@@ -247,10 +301,8 @@ class CompleteMethod(Method):
             ]
 
         self.__current = copy.deepcopy(self.__history)
-        t_ = time.time()
 
         self.__count = np.array([0, formula_file_size, 0, target_num_formula])
-        self.__list_formula_profit = np.zeros(formula_file_size+self._Method__OPERAND.shape[0])
 
         num_operand = self.__history[0] - 1
         while True:
@@ -315,16 +367,9 @@ class CompleteMethod(Method):
                                 break
 
             self.save_history()
-            print(Fore.LIGHTGREEN_EX+"Done in ", time.time()-t_, "s", Style.RESET_ALL)
-    @property
-    def history(self):
-        return copy.deepcopy(self.__history)
     @property
     def current(self):
         return copy.deepcopy(self.__current)
-    @property
-    def list_formula(self):
-        return copy.deepcopy(self.__list_formula[0:self.__count[0]])
     @property
     def count(self):
         return self.__count.copy()
@@ -332,6 +377,7 @@ class CompleteMethod(Method):
 
     def save_history(self):
         np.save(self.path+"history.npy", self.__current)
+        print(Fore.LIGHTGREEN_EX+"Đã lưu lịch sử.", Style.RESET_ALL)
         if self.__count[0] == 0:
             return
 
@@ -339,8 +385,9 @@ class CompleteMethod(Method):
         while True:
             pathSave = self.path + f"high_profit_{num_operand}_" + datetime.now().strftime("%d_%m_%Y_%H_%M_%S") + ".npy"
             if not os.path.exists(pathSave):
-                np.save(pathSave, (0, self.__list_formula[0:self.__count[0]], self.__list_formula_profit[0:self.__count[0]]))
+                np.save(pathSave, self.__list_formula[0:self.__count[0]])
                 self.__count[0] = 0
+                print(Fore.LIGHTGREEN_EX+"Đã lưu công thức", Style.RESET_ALL)
                 if self.__count[2] >= self.__count[3]:
                     raise Exception("Đã sinh đủ công thức theo yêu cầu.")
 
