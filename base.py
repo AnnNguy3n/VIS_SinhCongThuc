@@ -189,6 +189,9 @@ class Method:
 
 
     def explain_formula(self, formula):
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
+
         weight = _calculate_formula(formula, self.__OPERAND)
         temp_profit = 1.0
         for i in range(self.__INDEX.shape[0]-2, -1, -1):
