@@ -173,16 +173,27 @@ def _create_formula(struct):
 
 
 @njit
-def _update_struct(struct):
-    for i in range(struct.shape[0]-1, -1, -1):
-        if struct[i,3] > 0:
-            temp = np.where((struct[i:,0]==struct[i,0]) & (struct[i:,1]==struct[i,1]))[0] + i
-            struct[temp,3] = struct[i,3] - 1
-            temp_1 = np.max(temp) + 1
-            struct[temp_1:,3] = struct[temp_1:,1] - 1
-            return True
+def _update_struct(struct, numerator_condition):
+    if numerator_condition:
+        for i in range(struct.shape[0]-1, -1, -1):
+            if struct[i,3] > (struct[i,1]-1)//2:
+                temp = np.where((struct[i:,0]==struct[i,0]) & (struct[i:,1]==struct[i,1]))[0] + i
+                struct[temp,3] = struct[i,3] - 1
+                temp_1 = np.max(temp) + 1
+                struct[temp_1:,3] = struct[temp_1:,1] - 1
+                return True
 
-    return False
+        return False
+    else:
+        for i in range(struct.shape[0]-1, -1, -1):
+            if struct[i,3] > 0:
+                temp = np.where((struct[i:,0]==struct[i,0]) & (struct[i:,1]==struct[i,1]))[0] + i
+                struct[temp,3] = struct[i,3] - 1
+                temp_1 = np.max(temp) + 1
+                struct[temp_1:,3] = struct[temp_1:,1] - 1
+                return True
+
+        return False
 
 
 @njit

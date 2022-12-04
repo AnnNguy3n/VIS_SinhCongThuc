@@ -80,11 +80,12 @@ class CompleteMethod(Method):
         return False
     
 
-    def generate_formula(self, target_profit=1.0, formula_file_size=1000000, target_num_formula=1000000000):
+    def generate_formula(self, target_profit=1.0, formula_file_size=1000000, target_num_formula=1000000000, numerator_condition=False):
         '''
         * target_profit: Lợi nhuận mong muốn.
         * formula_file_size: Số lượng công thức xấp xỉ trong mỗi file lưu trữ.
         * target_num_formula: Số công thức đạt điều kiện được sinh trong 1 lần chạy ko ngắt.
+        * numerator_condition: Nếu được truyền vào là True, các công thức sinh ra có số phần tử trên tử số lớn hơn hoặc bằng số phần tử dưới mẫu số.
         '''
         print(Fore.LIGHTYELLOW_EX+"Khi ngắt bằng tay thì cần tự chạy phương thức <CompleteMethod_object>.save_history() để lưu lịch sử.", Style.RESET_ALL)
 
@@ -164,7 +165,7 @@ class CompleteMethod(Method):
                             while self.__fill_operand(formula, struct, 1, np.zeros(self._Method__OPERAND.shape[1]), -1, np.zeros(self._Method__OPERAND.shape[1]), target_profit):
                                 self.save_history()
 
-                            if not _update_struct(struct):
+                            if not _update_struct(struct, numerator_condition):
                                 break
 
             if self.save_history():
