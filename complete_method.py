@@ -15,10 +15,13 @@ from nopy import _get_valid_operand, _get_profits_by_weights, _split_posint_into
 class CompleteMethod(Method):
     def __init__(self, data: pd.DataFrame, pathSaveFormula: str, soChuKyTrain: int) -> None:
         super().__init__(data, pathSaveFormula, soChuKyTrain)
+        self.readMe()
 
 
     def readMe(self):
-        print("Sinh vét cạn.")
+        print("Sinh vét cạn. Đọc kĩ hướng dẫn trong chi tiết từng hàm.")
+        print("Các thuộc tính: TEST_DATA, TRAIN_DATA, count, current, path")
+        print("Các phương thức: convert_formula_to_str, convert_npy_file_to_DataFrame, convert_str_to_formula, explain_formula, generate_formula, get_formula_geomean_profit, readMe, save_history")
     
 
     def __fill_operand(self, formula, struct, idx, temp_0, temp_op, temp_1, target):
@@ -83,7 +86,7 @@ class CompleteMethod(Method):
     def generate_formula(self, target_profit=1.0, formula_file_size=1000000, target_num_formula=1000000000, numerator_condition=False):
         '''
         * target_profit: Lợi nhuận mong muốn.
-        * formula_file_size: Số lượng công thức xấp xỉ trong mỗi file lưu trữ.
+        * formula_file_size: Số lượng công thức xấp xỉ trong mỗi file lưu trữ (nên để từ 2 triệu đổ xuống, tránh tràn RAM).
         * target_num_formula: Số công thức đạt điều kiện được sinh trong 1 lần chạy ko ngắt.
         * numerator_condition: Nếu được truyền vào là True, các công thức sinh ra có số phần tử trên tử số lớn hơn hoặc bằng số phần tử dưới mẫu số.
         '''
@@ -181,6 +184,9 @@ class CompleteMethod(Method):
 
 
     def save_history(self):
+        '''
+        Lưu lịch sử: trong trường hợp ngắt bằng tay.
+        '''
         np.save(self.path+"history.npy", self.__current)
         print(Fore.LIGHTGREEN_EX+"Đã lưu lịch sử.", Style.RESET_ALL)
         if self.__count[0] == 0:

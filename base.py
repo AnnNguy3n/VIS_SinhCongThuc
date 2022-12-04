@@ -131,6 +131,9 @@ class Method:
 
 
     def get_formula_geomean_profit(self, formula):
+        '''
+        Chấp nhận cả công thức dạng array và công thức dạng string.
+        '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
 
@@ -138,6 +141,9 @@ class Method:
 
 
     def explain_formula(self, formula):
+        '''
+        Đưa ra danh mục đầu tư từng quý của công thức đầu vào.
+        '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
 
@@ -165,8 +171,15 @@ class Method:
         print("Lợi nhuận trung bình nhân (đã tính lần đầu tư cuối):", temp_profit_2**(1.0/(self.__INDEX.shape[0])))
 
 
-    def convert_npy_file_to_DataFrame(self, path):
-        list_formula = np.load(path, allow_pickle=True)
+    def convert_npy_file_to_DataFrame(self, path_or_2d_formula_array):
+        '''
+        Chuyển file .npy (hoặc mảng 2 chiều gồm các công thức dưới dạng array) thành DataFrame.
+        '''
+        if type(path_or_2d_formula_array) == str:
+            list_formula = np.load(path_or_2d_formula_array, allow_pickle=True)
+        else:
+            list_formula = path_or_2d_formula_array
+
         list_str_formula = []
         list_profit = []
         list_next_invest = []
