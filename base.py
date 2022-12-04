@@ -1,83 +1,62 @@
 import pandas as pd
 import numpy as np
 import os
-from numba import njit
+from colorama import Fore, Style
+import warnings
+warnings.filterwarnings("ignore")
 
-
-@njit
-def _get_profit_by_weight(weight, profit, index):
-    temp_profit = 1.0
-    for i in range(index.shape[0]-2, -1, -1):
-        temp = weight[index[i]:index[i+1]]
-        max_ = np.where(temp == np.max(temp))[0] + index[i]
-        if max_.shape[0] == 1:
-            temp_profit *= profit[max_[0]]
-
-    return temp_profit**(1.0/(index.shape[0]-1))
-
-
-@njit
-def _calculate_formula(formula, operand):
-    temp_0 = np.zeros(operand.shape[1])
-    temp_1 = temp_0.copy()
-    temp_op = -1
-
-    for i in range(1, formula.shape[0], 2):
-        if formula[i-1] < 2:
-            temp_op = formula[i-1]
-            temp_1 = operand[formula[i]].copy()
-        else:
-            if formula[i-1] == 2:
-                temp_1 *= operand[formula[i]]
-            else:
-                temp_1 /= operand[formula[i]]
-
-        if i+1 == formula.shape[0] or formula[i+1] < 2:
-            if temp_op == 0:
-                temp_0 += temp_1
-            else:
-                temp_0 -= temp_1
-
-    temp_0[np.isnan(temp_0)] = -1.7976931348623157e+308
-    temp_0[np.isinf(temp_0)] = -1.7976931348623157e+308
-    return temp_0
-
+from nopy import _get_profit_by_weight, _calculate_formula
 
 class Method:
-    def __init__(self, data:pd.DataFrame, pathSaveFormula:str, soChuKyTrain:int) -> None:
-        '''
-        Lưu ý về data đầu vào:
-        --------------------------------------------------
-            * Phải có 3 cột (tên in hoa) là "TIME", "PROFIT" và "SYMBOL".
-            * Các bản ghi phải được sắp xếp theo thứ tự giảm dần của cột "TIME" trước khi truyền vào.
-            * Ngoài các cột "TIME", "PROFIT", "SYMBOL" và "EXCHANGE" (nếu có), các cột khác được coi là các biến để thử công thức.
-        '''
+    def __init__(self, data:pd.DataFrame, path_save_formula:str, so_chu_ky_train:int) -> None:
+        # Check các cột bắt buộc
+        drop_cols = ["TIME", "PROFIT", "SYMBOL"]
+        for col in drop_cols:
+            if col not in data.columns:
+                raise Exception(f'Thiếu cột "{col}".')
 
+        # Check kiểu dữ liệu của cột TIME và PROFIT
+        if data["TIME"].dtypes != "int64":
+            raise Exception(f'Kiểu dữ liệu của cột "TIME" phải là int64 (hiện tại đang là {data["TIME"].dtypes}).')
+        if data["PROFIT"].dtypes != "float64":
+            raise Exception(f'Kiểu dữ liệu của cột "PROFIT" phải là float64 (hiện tại đang là {data["PROFIT"].dtypes}).')
+
+        # Check cột TIME xem có tăng dần không
+        if data["TIME"].diff().max() > 0:
+            raise Exception(f'Dữ liệu phải được sắp xếp theo sự giảm dần của cột "TIME".')
+
+        # Check các cột cần được drop
+        for col in data.columns:
+            if col not in drop_cols and data[col].dtypes == "object":
+                drop_cols.append(col)
+
+        print(Fore.LIGHTYELLOW_EX + f"Cảnh báo: Các cột không được coi là biến để sinh công thức: {drop_cols}. Nếu danh sách trên có một cột cần được coi là biến, hãy kiểm tra lại kiểu dữ liệu của cột.\n" , Style.RESET_ALL)
+
+        # Kiểm tra xem path có tồn tại hay không
+        if type(path_save_formula) != str or not os.path.exists(path_save_formula):
+            raise Exception(f'Không tồn tại thư mục {path_save_formula}/.')
+        else:
+            if not path_save_formula.endswith("/") and not path_save_formula.endswith("\\"):
+                path_save_formula += "/"
+                print(Fore.LIGHTBLUE_EX + f'Một dấu "/" đã được tự động thêm vào đường dẫn tới thư mục lưu công thức. Đường dẫn mới là: {path_save_formula}.\n', Style.RESET_ALL)
+
+        # Thiết lập các thuộc tính
         start_time = np.min(data["TIME"])
-        last_time = start_time + soChuKyTrain - 1
+        last_time = start_time + so_chu_ky_train - 1
 
         self.__TRAIN_DATA = data[(data["TIME"] >= start_time) & (data["TIME"] <= last_time)]
         self.__TEST_DATA = data[data["TIME"] == last_time + 1]
 
+        if self.__TRAIN_DATA.shape[0] == 0 or self.__TEST_DATA.shape[0] == 0:
+            raise Exception("Dữ liệu để sinh hoặc dữ liệu để thử công thức đang bị rỗng. Kiểm tra lại số chu kỳ muốn dùng để sinh công thức.")
+
         self.__PROFIT = np.array(self.__TRAIN_DATA["PROFIT"], dtype=np.float64)
         self.__TEST_PROFIT = np.array(self.__TEST_DATA["PROFIT"], dtype=np.float64)
 
-        drop_columns = ["TIME", "PROFIT", "SYMBOL"]
-        try:
-            self.__TRAIN_DATA["EXCHANGE"]
-            drop_columns.append("EXCHANGE")
-        except:
-            pass
+        self.__OPERAND = np.transpose(np.array(self.__TRAIN_DATA.drop(columns=drop_cols), dtype=np.float64))
+        self.__TEST_OPERAND = np.transpose(np.array(self.__TEST_DATA.drop(columns=drop_cols), dtype=np.float64))
 
-        self.__OPERAND = np.transpose(np.array(self.__TRAIN_DATA.drop(columns=drop_columns), dtype=np.float64))
-        self.__TEST_OPERAND = np.transpose(np.array(self.__TEST_DATA.drop(columns=drop_columns), dtype=np.float64))
-
-        if not os.path.exists(pathSaveFormula):
-            raise Exception(f"Không tồn tại đường dẫn tới thư mục để lưu công thức, {pathSaveFormula}")
-        else:
-            self.__path = pathSaveFormula
-            if not self.__path.endswith('/'):
-                self.__path += '/'
+        self.__path = path_save_formula
 
         time_arr = np.array(self.__TRAIN_DATA["TIME"])
         qArr = np.unique(time_arr)
@@ -101,11 +80,15 @@ class Method:
     def path(self):
         return self.__path
     @path.setter
-    def path(self, path):
-        if not os.path.exists(path):
-            raise Exception(f"Không tồn tại đường dẫn tới thư mục để lưu công thức, {path}")
+    def path(self, path_save_formula):
+        if type(path_save_formula) != str or not os.path.exists(path_save_formula):
+            raise Exception(f'Không tồn tại thư mục {path_save_formula}/.')
         else:
-            self.__path = path
+            if not path_save_formula.endswith("/") and not path_save_formula.endswith("\\"):
+                path_save_formula += "/"
+                print(Fore.LIGHTBLUE_EX + f'Một dấu "/" đã được tự động thêm vào đường dẫn tới thư mục lưu công thức. Đường dẫn mới là: {path_save_formula}.\n', Style.RESET_ALL)
+
+            self.__path = path_save_formula
 
 
     def convert_formula_to_str(self, formula):
@@ -152,7 +135,35 @@ class Method:
             formula = self.convert_str_to_formula(formula)
 
         return _get_profit_by_weight(_calculate_formula(formula, self.__OPERAND), self.__PROFIT, self.__INDEX)
-    
+
+
+    def explain_formula(self, formula):
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
+
+        weight = _calculate_formula(formula, self.__OPERAND)
+        temp_profit = 1.0
+        for i in range(self.__INDEX.shape[0]-2, -1, -1):
+            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
+            max_ = np.where(temp == np.max(temp))[0] + self.__INDEX[i]
+            if max_.shape[0] == 1:
+                temp_profit *= self.__PROFIT[max_[0]]
+                print("Quý thứ", self.__INDEX.shape[0]-1-i, "đầu tư", self.__TRAIN_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__PROFIT[max_[0]])
+            else:
+                print("Quý thứ", self.__INDEX.shape[0]-1-i, "không đầu tư")
+
+        weight = _calculate_formula(formula, self.__TEST_OPERAND)
+        max_ = np.where(weight == np.max(weight))[0]
+        if max_.shape[0] == 1:
+            temp_profit_2 = temp_profit * self.__TEST_PROFIT[max_[0]]
+            print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
+        else:
+            temp_profit_2 = temp_profit
+            print("Quý thứ", self.__INDEX.shape[0], "không đầu tư")
+
+        print("Lợi nhuận trung bình nhân (chưa tính lần đầu tư cuối):", temp_profit**(1.0/(self.__INDEX.shape[0]-1)))
+        print("Lợi nhuận trung bình nhân (đã tính lần đầu tư cuối):", temp_profit_2**(1.0/(self.__INDEX.shape[0])))
+
 
     def convert_npy_file_to_DataFrame(self, path):
         list_formula = np.load(path, allow_pickle=True)
@@ -176,41 +187,13 @@ class Method:
             else:
                 next_invest = "NOT_INVEST_2"
                 next_profit = 1.0
-            
+
             list_next_invest.append(next_invest)
             list_next_profit.append(next_profit)
-        
+
         return pd.DataFrame({
             "formula": list_str_formula,
             "geomean profit": list_profit,
             "invest": list_next_invest,
             "profit": list_next_profit
         })
-
-
-    def explain_formula(self, formula):
-        if type(formula) == str:
-            formula = self.convert_str_to_formula(formula)
-
-        weight = _calculate_formula(formula, self.__OPERAND)
-        temp_profit = 1.0
-        for i in range(self.__INDEX.shape[0]-2, -1, -1):
-            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
-            max_ = np.where(temp == np.max(temp))[0] + self.__INDEX[i]
-            if max_.shape[0] == 1:
-                temp_profit *= self.__PROFIT[max_[0]]
-                print("Quý thứ", self.__INDEX.shape[0]-1-i, "đầu tư", self.__TRAIN_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__PROFIT[max_[0]])
-            else:
-                print("Quý thứ", self.__INDEX.shape[0]-1-i, "không đầu tư")
-        
-        weight = _calculate_formula(formula, self.__TEST_OPERAND)
-        max_ = np.where(weight == np.max(weight))[0]
-        if max_.shape[0] == 1:
-            temp_profit_2 = temp_profit * self.__TEST_PROFIT[max_[0]]
-            print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
-        else:
-            temp_profit_2 = temp_profit
-            print("Quý thứ", self.__INDEX.shape[0], "không đầu tư")
-        
-        print("Lợi nhuận trung bình nhân (chưa tính lần đầu tư cuối):", temp_profit**(1.0/(self.__INDEX.shape[0]-1)))
-        print("Lợi nhuận trung bình nhân (đã tính lần đầu tư cuối):", temp_profit_2**(1.0/(self.__INDEX.shape[0])))
