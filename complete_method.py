@@ -21,8 +21,8 @@ class CompleteMethod(Method):
 
     def readMe(self):
         print("Sinh vét cạn. Đọc kĩ hướng dẫn trong chi tiết từng hàm.")
-        print("Các thuộc tính: TEST_DATA, TRAIN_DATA, count, current, path")
-        print("Các phương thức: convert_formula_to_str, convert_npy_file_to_DataFrame, convert_str_to_formula, explain_formula, generate_formula, get_formula_geomean_profit, readMe, save_history")
+        print("Các thuộc tính: TEST_DATA, TRAIN_DATA, count, current, path.")
+        print("Các phương thức: convert_formula_to_str, convert_npy_file_to_DataFrame, convert_str_to_formula, explain_formula, generate_formula, get_formula_geomean_profit, readMe, save_history, formula_filter.")
     
 
     def __fill_operand(self, formula, struct, idx, temp_0, temp_op, temp_1, target):
