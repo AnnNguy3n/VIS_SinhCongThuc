@@ -2,6 +2,7 @@ from base import Method
 import pandas as pd
 import numpy as np
 import os
+from numba import njit
 from numba.typed import List
 from colorama import Fore, Style
 import copy
@@ -203,3 +204,40 @@ class CompleteMethod(Method):
                     raise Exception("Đã sinh đủ công thức theo yêu cầu.")
                     
                 return False
+
+
+    def formula_filter(self, two_dimension_formula_array):
+        '''
+        Lọc các công thức có số phần tử ở trên tử ít hơn số phần tử ở dưới mẫu. Đầu vào là các array các công thức.
+        '''
+        @njit
+        def check_formula(formula):
+            temp = []
+            for i in range(0, formula.shape[0], 2):
+                if formula[i] < 2:
+                    temp.append(i)
+            
+            len_ = len(temp)
+            temp.append(formula.shape[0])
+            for i in range(len_):
+                len_2 = (temp[i+1] - temp[i])//2
+                start = temp[i]
+                last = temp[i+1]
+                count = 0
+                for j in range(start, last, 2):
+                    if formula[j] == 2:
+                        count += 1
+                
+                if count < (len_2-1)//2:
+                    return False
+            
+            return True
+        
+        check = np.full(two_dimension_formula_array.shape[0], 0)
+        for i in range(two_dimension_formula_array.shape[0]):
+            if check_formula(two_dimension_formula_array[i]):
+                check[i] = 1
+        
+        return two_dimension_formula_array[np.where(check==1)[0]].copy()
+
+                
