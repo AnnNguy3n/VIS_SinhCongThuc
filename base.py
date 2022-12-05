@@ -206,7 +206,7 @@ class Method:
 
         return pd.DataFrame({
             "formula": list_str_formula,
-            "geomean profit": list_profit,
+            "geomean_profit": list_profit,
             "invest": list_next_invest,
             "profit": list_next_profit
         })
