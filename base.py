@@ -239,4 +239,25 @@ class Method:
         weight = _calculate_formula(formula, self.__TEST_OPERAND)
 
         return np.max(weight)
+    
+    
+    def get_value_invest(self, formula):
+        '''
+        Trả ra 1 mảng là các value max của từng quý.
+        '''
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
 
+        weight = _calculate_formula(formula, self.__OPERAND)
+        a = np.zeros(self.__INDEX.shape[0])
+
+        for i in range(self.__INDEX.shape[0]-2, -1, -1):
+            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
+            max_ = np.argmax(temp)
+            a[self.__INDEX.shape[0]-2-i] = temp[max_]
+        
+        weight = _calculate_formula(formula, self.__TEST_OPERAND)
+        max_ = np.argmax(weight)
+        a[self.__INDEX.shape[0]-1] = weight[max_]
+
+        return a
