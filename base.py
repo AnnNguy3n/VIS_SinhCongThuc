@@ -227,3 +227,16 @@ class Method:
             "invest": list_next_invest,
             "profit": list_next_profit
         })
+    
+
+    def get_company_value(self, formula):
+        '''
+        Đưa ra max value trong quý đầu tư.
+        '''
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
+        
+        weight = _calculate_formula(formula, self.__TEST_OPERAND)
+
+        return np.max(weight)
+
