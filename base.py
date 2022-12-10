@@ -199,6 +199,25 @@ class Method:
         return Data_out
     
 
+    # def get_invested_company(self, formula):
+    #     '''
+    #     Đưa ra mã công ty đầu tư và lợi nhuận của chu kì đầu tư dùng để test.
+    #     '''
+    #     if type(formula) == str:
+    #         formula = self.convert_str_to_formula(formula)
+        
+    #     weight = _calculate_formula(formula, self.__TEST_OPERAND)
+    #     max_ = np.where(weight == np.max(weight))[0]
+    #     if max_.shape[0] == 1:
+    #         print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
+    #         return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
+    #     else:
+    #         print("Quý thứ", self.__INDEX.shape[0], "không đầu tư do không thể chọn.")
+    #         return 'NOT_INVEST_2', 1.0
+        
+    #     # return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
+    
+
     def get_invested_company(self, formula):
         '''
         Đưa ra mã công ty đầu tư và lợi nhuận của chu kì đầu tư dùng để test.
@@ -209,13 +228,13 @@ class Method:
         weight = _calculate_formula(formula, self.__TEST_OPERAND)
         max_ = np.where(weight == np.max(weight))[0]
         if max_.shape[0] == 1:
-            print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
-            return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
+            Com = self.__TEST_DATA.iloc[max_[0]]["SYMBOL"]
+            Prof = self.__TEST_PROFIT[max_[0]]
         else:
-            print("Quý thứ", self.__INDEX.shape[0], "không đầu tư do không thể chọn.")
-            return 'NOT_INVEST_2', 1.0
+            Com = 'NI'
+            Prof = 1.0
         
-        # return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
+        return Com,Prof
 
 
     def convert_npy_file_to_DataFrame(self, path_or_2d_formula_array):
