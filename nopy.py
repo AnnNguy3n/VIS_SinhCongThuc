@@ -14,13 +14,16 @@ def _get_profit_by_weight(weight, profit, index):
     return temp_profit**(1.0/(index.shape[0]-1))
 
 
-# @njit
+@njit
 def _calculate_formula(formula, operand):
     temp_0 = np.zeros(operand.shape[1])
     temp_1 = temp_0.copy()
     temp_op = -1
 
     for i in range(1, formula.shape[0], 2):
+        if formula[i] >= operand.shape[0]:
+            raise
+        
         if formula[i-1] < 2:
             temp_op = formula[i-1]
             temp_1 = operand[formula[i]].copy()
