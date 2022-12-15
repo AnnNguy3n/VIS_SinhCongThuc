@@ -169,7 +169,8 @@ class Method:
 
         print("Lợi nhuận trung bình nhân (chưa tính lần đầu tư cuối):", temp_profit**(1.0/(self.__INDEX.shape[0]-1)))
         print("Lợi nhuận trung bình nhân (đã tính lần đầu tư cuối):", temp_profit_2**(1.0/(self.__INDEX.shape[0])))
-    
+
+
     def explain_f(self, formula):
         '''
         Đưa ra danh mục đầu tư từng quý của công thức đầu vào.
@@ -187,7 +188,7 @@ class Method:
             max_ = np.where(temp == np.max(temp))[0] + self.__INDEX[i]
             Out_Time.append(self.__INDEX.shape[0]-1-i+27)
             if max_.shape[0] == 1:
-                Out_profit.append(self.__PROFIT[max_[0]])         
+                Out_profit.append(self.__PROFIT[max_[0]])
                 Out_Symbol.append(self.__TRAIN_DATA.iloc[max_[0]]["SYMBOL"])
                 Out_Value.append(max(temp))
             else:
@@ -197,26 +198,7 @@ class Method:
 
         Data_out = pd.DataFrame({'Out_Time':Out_Time,'Out_Symbol':Out_Symbol,'Out_profit':Out_profit,'Out_Value':Out_Value})
         return Data_out
-    
 
-    # def get_invested_company(self, formula):
-    #     '''
-    #     Đưa ra mã công ty đầu tư và lợi nhuận của chu kì đầu tư dùng để test.
-    #     '''
-    #     if type(formula) == str:
-    #         formula = self.convert_str_to_formula(formula)
-        
-    #     weight = _calculate_formula(formula, self.__TEST_OPERAND)
-    #     max_ = np.where(weight == np.max(weight))[0]
-    #     if max_.shape[0] == 1:
-    #         print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
-    #         return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
-    #     else:
-    #         print("Quý thứ", self.__INDEX.shape[0], "không đầu tư do không thể chọn.")
-    #         return 'NOT_INVEST_2', 1.0
-        
-    #     # return self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], self.__TEST_PROFIT[max_[0]]
-    
 
     def get_invested_company(self, formula):
         '''
@@ -224,7 +206,7 @@ class Method:
         '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
-        
+
         weight = _calculate_formula(formula, self.__TEST_OPERAND)
         max_ = np.where(weight == np.max(weight))[0]
         if max_.shape[0] == 1:
@@ -233,7 +215,7 @@ class Method:
         else:
             Com = 'NI'
             Prof = 1.0
-        
+
         return Com,Prof
 
 
@@ -276,7 +258,7 @@ class Method:
             "invest": list_next_invest,
             "profit": list_next_profit
         })
-    
+
 
     def get_company_value(self, formula):
         '''
@@ -284,12 +266,12 @@ class Method:
         '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
-        
+
         weight = _calculate_formula(formula, self.__TEST_OPERAND)
 
         return np.max(weight)
-    
-    
+
+
     def get_value_invest(self, formula):
         '''
         Trả ra 1 mảng là các value max của từng quý.
@@ -304,7 +286,7 @@ class Method:
             temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
             max_ = np.argmax(temp)
             a[self.__INDEX.shape[0]-2-i] = temp[max_]
-        
+
         weight = _calculate_formula(formula, self.__TEST_OPERAND)
         max_ = np.argmax(weight)
         a[self.__INDEX.shape[0]-1] = weight[max_]
