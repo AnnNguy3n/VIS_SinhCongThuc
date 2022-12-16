@@ -363,57 +363,113 @@ def _get_valid_op(formula, struct, idx, start):
     return np.where(valid_op == 1)[0] + 2
 
 
+# @njit
+# def _get_threshold(weight, index, profit):
+#     temp_profit = 1.0
+#     thresholds = np.zeros(index.shape[0])
+#     for i in range(index.shape[0]-2, -1, -1):
+#         temp = weight[index[i]:index[i+1]]
+#         max_temp = np.max(temp)
+#         max_ = np.where(temp == max_temp)[0] + index[i]
+#         if max_.shape[0] == 1:
+#             temp_profit *= profit[max_[0]]
+#             thresholds[index.shape[0]-1-i] = max_temp
+#         else:
+#             thresholds[index.shape[0]-1-i] = 10**200
+    
+#     thresholds[0] = np.min(thresholds[1:]) - 10**(-10)
+#     return temp_profit**(1.0/(index.shape[0]-1)), thresholds
+
+
+# @njit
+# def _get_profit_by_weight_and_threshold(weight, profit, index, threshold):
+#     temp_profit = 1.0
+#     for i in range(index.shape[0]-2, -1, -1):
+#         temp = weight[index[i]:index[i+1]]
+#         max_value = np.max(temp)
+#         if max_value <= threshold:
+#             temp_profit *= 1.01
+#         else:
+#             max_ = np.where(temp == max_value)[0] + index[i]
+#             if max_.shape[0] == 1:
+#                 temp_profit *= profit[max_[0]]
+#             else:
+#                 temp_profit *= 1.0
+    
+#     return temp_profit**(1.0/(index.shape[0]-1))
+
+
+# @njit
+# def _find_max_threshold(formula, operand, index, profit):
+#     weight = _calculate_formula(formula, operand)
+#     geomean_profit, thresholds = _get_threshold(weight, index, profit)
+#     max_threshold = thresholds[0]
+#     max_profit = -1.0
+#     for threshold in thresholds:
+#         temp_profit = _get_profit_by_weight_and_threshold(weight, profit, index, threshold)
+#         if temp_profit > max_profit:
+#             max_profit = temp_profit
+#             max_threshold = threshold
+    
+#     return geomean_profit, max_threshold, max_profit
+
+
+# @njit
+# def _get_value_invest_threshold(formula, threshold, test_operand, test_profit):
+#     weight = _calculate_formula(formula, test_operand)
+#     max_value = np.max(weight)
+#     if max_value <= threshold:
+#         return max_value, -1, 1.01
+#     else:
+#         max_ = np.where(weight == max_value)[0]
+#         if max_.shape[0] == 1:
+#             return max_value, max_[0], test_profit[max_[0]]
+#         else:
+#             return 0.0, -2, -1.0
+
+
 @njit
 def _get_threshold(weight, index, profit):
     temp_profit = 1.0
-    thresholds = np.zeros(index.shape[0])
+    thresholds = np.zeros(index.shape[0]-1, dtype=np.float64)
+    profits_nguong = np.zeros(index.shape[0]-1)
     for i in range(index.shape[0]-2, -1, -1):
         temp = weight[index[i]:index[i+1]]
         max_temp = np.max(temp)
         max_ = np.where(temp == max_temp)[0] + index[i]
         if max_.shape[0] == 1:
             temp_profit *= profit[max_[0]]
-            thresholds[index.shape[0]-1-i] = max_temp
+            thresholds[index.shape[0]-2-i] = max_temp
+            profits_nguong[index.shape[0]-2-i] = profit[max_[0]]
         else:
-            thresholds[index.shape[0]-1-i] = 1e300
+            thresholds[index.shape[0]-2-i] = 1e200
+            profits_nguong[index.shape[0]-2-i] = 1.0
     
-    thresholds[0] = -1.7976931348623157e+308
-    thresholds = np.sort(thresholds)
-    thresholds[0] = thresholds[1] - np.max(np.array([1e-9, np.abs(thresholds[1]/1e9)]))
-    return temp_profit**(1.0/(index.shape[0]-1)), thresholds
-
-
-@njit
-def _get_profit_by_weight_and_threshold(weight, profit, index, threshold):
-    temp_profit = 1.0
-    for i in range(index.shape[0]-2, -1, -1):
-        temp = weight[index[i]:index[i+1]]
-        max_value = np.max(temp)
-        if max_value <= threshold:
-            temp_profit *= 1.01
-        else:
-            max_ = np.where(temp == max_value)[0] + index[i]
-            if max_.shape[0] == 1:
-                temp_profit *= profit[max_[0]]
-            else:
-                temp_profit *= 1.0
-    
-    return temp_profit**(1.0/(index.shape[0]-1))
+    min_ = np.min(thresholds)
+    x_nguong = min_ - np.max(np.array([1e-9, 1e-9*min_]))
+    return temp_profit**(1.0/(index.shape[0]-1)), thresholds, profits_nguong, x_nguong
 
 
 @njit
 def _find_max_threshold(formula, operand, index, profit):
     weight = _calculate_formula(formula, operand)
-    geomean_profit, thresholds = _get_threshold(weight, index, profit)
-    max_threshold = thresholds[0]
-    max_profit = -1.0
-    for threshold in thresholds:
-        temp_profit = _get_profit_by_weight_and_threshold(weight, profit, index, threshold)
-        if temp_profit > max_profit:
-            max_profit = temp_profit
-            max_threshold = threshold
+    geomean_profit, thresholds, profits_nguong, x_nguong = _get_threshold(weight, index, profit)
     
-    return geomean_profit, max_threshold, max_profit
+    max_profit = geomean_profit
+    for x in thresholds:
+        temp_profit = 1.0
+        for i in range(0, thresholds.shape[0]):
+            if thresholds[i] > x:
+                temp_profit *= profits_nguong[i]
+            else:
+                temp_profit *= 1.01
+        
+        geo_ = temp_profit**(1.0/(index.shape[0]-1))
+        if geo_ > max_profit:
+            max_profit = geo_
+            x_nguong = x
+    
+    return geomean_profit, x_nguong, max_profit
 
 
 @njit
