@@ -329,8 +329,9 @@ class Method:
         data["Com_invest"] = np.full(data.shape[0], "NI")
         data["Profit_invest"] = np.full(data.shape[0], 0.0)
         for i in range(data.shape[0]):
-            data["geomean_profit"][i] = self.get_formula_geomean_profit(data["formula"][i])
-            data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
+            # data["geomean_profit"][i] = self.get_formula_geomean_profit(data["formula"][i])
+            # data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
+            data["geomean_profit"][i], data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
             data["Value_invest"][i], data["Com_invest"][i], data["Profit_invest"][i] = self.get_value_invest_threshold(data["formula"][i], data["Value_limit"][i])
         
         return data
