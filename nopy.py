@@ -254,3 +254,110 @@ def _njit_fill_operand(formula, struct, idx, temp_0, temp_op, temp_1, target, la
                         return True
 
         return False
+
+
+@njit
+def _get_profits_by_weight(weight, profit, index, num_test):
+    overall_profit = np.zeros(num_test)
+    num_test_1 = num_test - 1
+    temp_profit = 1.0
+    for i in range(index.shape[0]-2, -1, -1):
+        temp = weight[index[i]:index[i+1]]
+        max_ = np.where(temp==np.max(temp))[0] + index[i]
+        if max_.shape[0] == 1:
+            temp_profit *= profit[max_[0]]
+        
+        if i <= num_test_1:
+            overall_profit[num_test_1-i] = temp_profit
+    
+    return overall_profit
+
+
+@njit
+def _get_geomean_profits_by_weights(weights, profit, index, num_test, target):
+    two_d_geomean_profits = np.zeros((weights.shape[0], num_test))
+    for i in range(weights.shape[0]):
+        two_d_geomean_profits[i] = _get_profits_by_weight(weights[i], profit, index, num_test)
+    
+    test_start = index.shape[0] - num_test
+    for i in range(num_test):
+        two_d_geomean_profits[:,i] **= (1.0/(test_start+i))
+    
+    check_target = np.where(two_d_geomean_profits >= target, 1, 0)
+    check_valid = np.full(weights.shape[0], 0)
+    for i in range(weights.shape[0]):
+        if (check_target[i]==1).any():
+            check_valid[i] = 1
+    
+    temp = np.where(check_valid==1)[0]
+
+    return temp, check_target[temp]
+
+
+@njit
+def _njit_fill_operand_many(formula, struct, idx, temp_0, temp_op, temp_1, target, current_5, operand, list_formula_0, list_formula_1, count, profit, index, num_test):
+        start = -1
+        if (formula[0:idx]==current_5[0:idx]).all():
+            start = current_5[idx]
+        else:
+            start = 0
+
+        valid_operand = _get_valid_operand(formula, struct, idx, start, operand.shape[0])
+        if valid_operand.shape[0] > 0:
+            if formula[idx-1] < 2:
+                temp_op_new = formula[idx-1]
+                temp_1_new = operand[valid_operand].copy()
+            else:
+                temp_op_new = temp_op
+                if formula[idx-1] == 2:
+                    temp_1_new = temp_1 * operand[valid_operand]
+                else:
+                    temp_1_new = temp_1 / operand[valid_operand]
+
+            if idx + 1 == formula.shape[0] or formula[idx+1] < 2:
+                if temp_op_new == 0:
+                    temp_0_new = temp_0 + temp_1_new
+                else:
+                    temp_0_new = temp_0 - temp_1_new
+            else:
+                temp_0_new = np.zeros((valid_operand.shape[0], temp_0.shape[0])) + temp_0
+            
+            if idx + 1 == formula.shape[0]:
+                for arr in temp_0_new:
+                    arr[np.isnan(arr)] = -1.7976931348623157e+308
+                    arr[np.isinf(arr)] = -1.7976931348623157e+308
+
+                valid_idx, check_target = _get_geomean_profits_by_weights(temp_0_new, profit, index, num_test, target)
+                if valid_idx.shape[0] > 0:
+                    temp_list_formula = np.full((valid_idx.shape[0], formula.shape[0]), 0) + formula
+                    temp_list_formula[:,idx] = valid_operand[valid_idx]
+                    x_1 = count[0]
+                    x_2 = count[0] + valid_idx.shape[0]
+                    list_formula_0[x_1:x_2] = temp_list_formula
+                    list_formula_1[x_1:x_2] = check_target
+                    count[0:3:2] += valid_idx.shape[0]
+                
+                current_5[:] = formula[:]
+                current_5[idx] = operand.shape[0]
+                if count[0] >= count[1] or count[2] >= count[3]:
+                    return True
+            else:
+                temp_list_formula = np.full((valid_operand.shape[0], formula.shape[0]), 0) + formula
+                temp_list_formula[:,idx] = valid_operand
+                idx_new = idx + 2
+                for i in range(valid_operand.shape[0]):
+                    if _njit_fill_operand_many(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target, current_5, operand, list_formula_0, list_formula_1, count, profit, index, num_test):
+                        return True
+
+        return False
+
+
+@njit
+def _get_valid_op(formula, struct, idx, start):
+    valid_op = np.full(2, 0)
+    valid_op[start-2:] = 1
+
+    if idx // 2 <= struct[0,1] // 2:
+        valid_op[1] = 0
+    
+    return np.where(valid_op == 1)[0] + 2

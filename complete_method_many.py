@@ -9,7 +9,7 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore")
 
-from nopy_many import _get_profits_by_weight, _get_geomean_profits_by_weights, _get_valid_operand, _split_posint_into_sum, _create_struct, _create_formula, _update_struct, _njit_fill_operand
+from nopy import _get_geomean_profits_by_weights, _get_valid_operand, _split_posint_into_sum, _create_struct, _create_formula, _update_struct, _njit_fill_operand_many
 
 
 class CompleteMethod_many(Method):
@@ -69,7 +69,7 @@ class CompleteMethod_many(Method):
                 idx_new = idx + 2
                 if formula.shape[0] - 7 <= idx_new:
                     for i in range(valid_operand.shape[0]):
-                        if _njit_fill_operand(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target, self.__current[5], self._Method__OPERAND, self.__list_formula[0], self.__list_formula[1], self.__count, self._Method__PROFIT, self._Method__INDEX, self._Method__num_test):
+                        if _njit_fill_operand_many(temp_list_formula[i], struct, idx_new, temp_0_new[i], temp_op_new, temp_1_new[i], target, self.__current[5], self._Method__OPERAND, self.__list_formula[0], self.__list_formula[1], self.__count, self._Method__PROFIT, self._Method__INDEX, self._Method__num_test):
                             return True
                 else:
                     for i in range(valid_operand.shape[0]):
