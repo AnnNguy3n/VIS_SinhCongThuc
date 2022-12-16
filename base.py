@@ -5,7 +5,7 @@ from colorama import Fore, Style
 import warnings
 warnings.filterwarnings("ignore")
 
-from nopy import _get_profit_by_weight, _calculate_formula
+from nopy import _get_profit_by_weight, _calculate_formula, _find_max_threshold, _get_value_invest_threshold
 
 class Method:
     def __init__(self, data:pd.DataFrame, path_save_formula:str, so_chu_ky_train:int) -> None:
@@ -292,3 +292,45 @@ class Method:
         a[self.__INDEX.shape[0]-1] = weight[max_]
 
         return a
+    
+
+    def find_threshold(self, formula):
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
+        
+        return _find_max_threshold(formula, self.__OPERAND, self.__INDEX, self.__PROFIT)
+    
+
+    def get_value_invest_threshold(self, formula, threshold):
+        if type(formula) == str:
+            formula = self.convert_str_to_formula(formula)
+        
+        a, b, c = _get_value_invest_threshold(formula, threshold, self.__TEST_OPERAND, self.__TEST_PROFIT)
+        if b == -1:
+            return a, "BANK", c
+        elif b == -2:
+            return a, "NI", c
+        else:
+            return a, self.__TEST_DATA.iloc[b]["SYMBOL"], c
+            
+
+    def xuat_file(self, df:pd.DataFrame):
+        """
+        Đầu vào: 
+            * dataframe có cột formula
+        """
+
+        data = df[["formula"]]
+        data["geomean_profit"] = np.full(data.shape[0], -1.0)
+        data["Value_limit"] = np.full(data.shape[0], -1.7976931348623157e+308)
+        data["Geo_limit"] = np.full(data.shape[0], -1.0)
+        data["Time_invest"] = np.full(data.shape[0], self.__TEST_DATA.iloc[0]["TIME"])
+        data["Value_invest"] = np.full(data.shape[0], 0.0)
+        data["Com_invest"] = np.full(data.shape[0], "NI")
+        data["Profit_invest"] = np.full(data.shape[0], 0.0)
+        for i in range(data.shape[0]):
+            data["geomean_profit"][i] = self.get_formula_geomean_profit(data["formula"][i])
+            data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
+            data["Value_invest"][i], data["Com_invest"][i], data["Profit_invest"][i] = self.get_value_invest_threshold(data["formula"][i], data["Value_limit"][i])
+        
+        return data

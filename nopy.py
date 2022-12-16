@@ -361,3 +361,63 @@ def _get_valid_op(formula, struct, idx, start):
         valid_op[1] = 0
     
     return np.where(valid_op == 1)[0] + 2
+
+
+@njit
+def _get_threshold(weight, index):
+    thresholds = np.zeros(index.shape[0])
+    for i in range(index.shape[0]-2, -1, -1):
+        temp = weight[index[i]:index[i+1]]
+        thresholds[index.shape[0]-1-i] = np.max(temp)
+    
+    thresholds[0] = -1.7976931348623157e+308
+    thresholds = np.sort(thresholds)
+    thresholds[0] = thresholds[1] - np.max(np.array([1e-9, np.abs(thresholds[1]/1e9)]))
+    return thresholds
+
+
+@njit
+def _get_profit_by_weight_and_threshold(weight, profit, index, threshold):
+    temp_profit = 1.0
+    for i in range(index.shape[0]-2, -1, -1):
+        temp = weight[index[i]:index[i+1]]
+        max_value = np.max(temp)
+        if max_value <= threshold:
+            temp_profit *= 1.01
+        else:
+            max_ = np.where(temp == max_value)[0] + index[i]
+            if max_.shape[0] == 1:
+                temp_profit *= profit[max_[0]]
+            else:
+                temp_profit *= 1.0
+    
+    return temp_profit**(1.0/(index.shape[0]-1))
+
+
+@njit
+def _find_max_threshold(formula, operand, index, profit):
+    weight = _calculate_formula(formula, operand)
+    thresholds = _get_threshold(weight, index)
+    max_threshold = thresholds[0]
+    max_profit = -1.0
+    for threshold in thresholds:
+        temp_profit = _get_profit_by_weight_and_threshold(weight, profit, index, threshold)
+        if temp_profit > max_profit:
+            max_profit = temp_profit
+            max_threshold = threshold
+    
+    return max_threshold, max_profit
+
+
+@njit
+def _get_value_invest_threshold(formula, threshold, test_operand, test_profit):
+    weight = _calculate_formula(formula, test_operand)
+    max_value = np.max(weight)
+    if max_value <= threshold:
+        return max_value, -1, 1.01
+    else:
+        max_ = np.where(weight == max_value)[0]
+        if max_.shape[0] == 1:
+            return max_value, max_[0], test_profit[max_[0]]
+        else:
+            return 0.0, -2, -1.0
