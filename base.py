@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 import os
 from colorama import Fore, Style
+import nopy
+
 import warnings
 warnings.filterwarnings("ignore")
 
-from nopy import _get_profit_by_weight, _calculate_formula, _find_max_threshold, _get_value_invest_threshold
 
 class Method:
-    def __init__(self, data:pd.DataFrame, path_save_formula:str, so_chu_ky_train:int) -> None:
+    def __init__(self, data:pd.DataFrame, path_save:str, num_training:int, profit_method:str) -> None:
         # Check các cột bắt buộc
         drop_cols = ["TIME", "PROFIT", "SYMBOL"]
         for col in drop_cols:
@@ -16,79 +17,70 @@ class Method:
                 raise Exception(f'Thiếu cột "{col}".')
 
         # Check kiểu dữ liệu của cột TIME và PROFIT
-        if data["TIME"].dtypes != "int64":
-            raise Exception(f'Kiểu dữ liệu của cột "TIME" phải là int64 (hiện tại đang là {data["TIME"].dtypes}).')
-        if data["PROFIT"].dtypes != "float64":
-            raise Exception(f'Kiểu dữ liệu của cột "PROFIT" phải là float64 (hiện tại đang là {data["PROFIT"].dtypes}).')
+        if data["TIME"].dtype != "int64":
+            raise Exception(f'Kiểu dữ liệu của cột "TIME" phải là int64.')
+        if data["PROFIT"].dtype != "float64":
+            raise Exception(f'Kiểu dữ liệu của cột "PROFIT" phải là float64.')
 
         # Check cột TIME xem có tăng dần không
         if data["TIME"].diff().max() > 0:
-            raise Exception(f'Dữ liệu phải được sắp xếp theo sự giảm dần của cột "TIME".')
+            raise Exception(f'Dữ liệu phải được sắp xếp giảm dần theo cột "TIME".')
+
+        # Check cột TIME xem có bị khuyết quý nào không
+        min_time = np.min(data["TIME"])
+        max_time = np.max(data["TIME"])
+        time_unique_arr = np.unique(data["TIME"])
+        for i in range(min_time, max_time):
+            if i not in time_unique_arr:
+                raise Exception(f'Dữ liệu bị khuyết chu kỳ "{i}".')
 
         # Check các cột cần được drop
         for col in data.columns:
-            if col not in drop_cols and data[col].dtypes == "object":
+            if col not in drop_cols and data[col].dtype == "object":
                 drop_cols.append(col)
 
-        print(Fore.LIGHTYELLOW_EX + f"Cảnh báo: Các cột không được coi là biến để sinh công thức: {drop_cols}. Nếu danh sách trên có một cột cần được coi là biến, hãy kiểm tra lại kiểu dữ liệu của cột.\n" , Style.RESET_ALL)
+        print(Fore.YELLOW + f"Các cột không được coi là biến: {drop_cols}.", Style.RESET_ALL)
 
         # Kiểm tra xem path có tồn tại hay không
-        if type(path_save_formula) != str or not os.path.exists(path_save_formula):
-            raise Exception(f'Không tồn tại thư mục {path_save_formula}/.')
+        if type(path_save) != str or not os.path.exists(path_save):
+            raise Exception(f'Không tồn tại thư mục {path_save}/.')
         else:
-            if not path_save_formula.endswith("/") and not path_save_formula.endswith("\\"):
-                path_save_formula += "/"
-                print(Fore.LIGHTBLUE_EX + f'Một dấu "/" đã được tự động thêm vào đường dẫn tới thư mục lưu công thức. Đường dẫn mới là: {path_save_formula}.\n', Style.RESET_ALL)
+            if not path_save.endswith("/") and not path_save.endswith("\\"):
+                path_save += "/"
+
+            self.path = path_save
 
         # Thiết lập các thuộc tính
-        start_time = np.min(data["TIME"])
-        last_time = start_time + so_chu_ky_train - 1
+        start_ = np.min(data["TIME"])
+        last_ = start_ + num_training - 1
+        self.TRAINING_DATA = data[(data["TIME"] >= start_) & (data["TIME"] <= last_)]
+        self.TEST_DATA = data[data["TIME"] == last_+1]
+        if self.TRAINING_DATA.shape[0] == 0 or self.TEST_DATA.shape[0] == 0:
+            raise Exception("Training data hoặc test data đang rỗng.")
 
-        self.__TRAIN_DATA = data[(data["TIME"] >= start_time) & (data["TIME"] <= last_time)]
-        self.__TEST_DATA = data[data["TIME"] == last_time + 1]
+        self.PROFIT = np.array(self.TRAINING_DATA["PROFIT"], dtype=np.float64)
+        self.TEST_PROFIT = np.array(self.TEST_DATA["PROFIT"], dtype=np.float64)
 
-        if self.__TRAIN_DATA.shape[0] == 0 or self.__TEST_DATA.shape[0] == 0:
-            raise Exception("Dữ liệu để sinh hoặc dữ liệu để thử công thức đang bị rỗng. Kiểm tra lại số chu kỳ muốn dùng để sinh công thức.")
+        self.OPERAND = np.transpose(np.array(self.TRAINING_DATA.drop(columns=drop_cols), dtype=np.float64))
+        self.TEST_OPERAND = np.transpose(np.array(self.TEST_DATA.drop(columns=drop_cols), dtype=np.float64))
 
-        self.__PROFIT = np.array(self.__TRAIN_DATA["PROFIT"], dtype=np.float64)
-        self.__TEST_PROFIT = np.array(self.__TEST_DATA["PROFIT"], dtype=np.float64)
-
-        self.__OPERAND = np.transpose(np.array(self.__TRAIN_DATA.drop(columns=drop_cols), dtype=np.float64))
-        self.__TEST_OPERAND = np.transpose(np.array(self.__TEST_DATA.drop(columns=drop_cols), dtype=np.float64))
-
-        self.__path = path_save_formula
-
-        time_arr = np.array(self.__TRAIN_DATA["TIME"])
+        time_arr = np.array(self.TRAINING_DATA["TIME"])
         qArr = np.unique(time_arr)
-        self.__INDEX = np.full(qArr.shape[0]+1, 0, dtype=np.int64)
+        self.INDEX = np.full(qArr.shape[0]+1, 0, dtype=np.int64)
         for i in range(qArr.shape[0]):
             if i == qArr.shape[0] - 1:
-                self.__INDEX[qArr.shape[0]] = time_arr.shape[0]
+                self.INDEX[qArr.shape[0]] = time_arr.shape[0]
             else:
-                temp = time_arr[self.__INDEX[i]]
-                for j in range(self.__INDEX[i], time_arr.shape[0]):
+                temp = time_arr[self.INDEX[i]]
+                for j in range(self.INDEX[i], time_arr.shape[0]):
                     if time_arr[j] != temp:
-                        self.__INDEX[i+1] = j
+                        self.INDEX[i+1] = j
                         break
-    @property
-    def TRAIN_DATA(self):
-        return self.__TRAIN_DATA.copy()
-    @property
-    def TEST_DATA(self):
-        return self.__TEST_DATA.copy()
-    @property
-    def path(self):
-        return self.__path
-    @path.setter
-    def path(self, path_save_formula):
-        if type(path_save_formula) != str or not os.path.exists(path_save_formula):
-            raise Exception(f'Không tồn tại thư mục {path_save_formula}/.')
-        else:
-            if not path_save_formula.endswith("/") and not path_save_formula.endswith("\\"):
-                path_save_formula += "/"
-                print(Fore.LIGHTBLUE_EX + f'Một dấu "/" đã được tự động thêm vào đường dẫn tới thư mục lưu công thức. Đường dẫn mới là: {path_save_formula}.\n', Style.RESET_ALL)
 
-            self.__path = path_save_formula
+        # Profit method
+        self.profit_method = profit_method
+        self.profit_method_index = ["geomean", "harmean"].index(profit_method)
+        self.get_profit_by_weight = getattr(nopy, f"get_{profit_method}_profit_by_weight")
 
 
     def convert_formula_to_str(self, formula):
@@ -107,7 +99,7 @@ class Method:
         temp = "+-*/"
         f_len = sum(str_formula.count(c) for c in temp) * 2
         str_len = len(str_formula)
-        if self.__OPERAND.shape[0] <= 256:
+        if self.OPERAND.shape[0] <= 256:
             formula = np.full(f_len, 0, dtype=np.uint8)
         else:
             formula = np.full(f_len, 0, dtype=np.uint16)
@@ -130,99 +122,66 @@ class Method:
         return formula
 
 
-    def get_formula_geomean_profit(self, formula):
-        '''
-        Chấp nhận cả công thức dạng array và công thức dạng string.
-        '''
+    def get_formula_profit(self, formula):
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
 
-        return _get_profit_by_weight(_calculate_formula(formula, self.__OPERAND), self.__PROFIT, self.__INDEX)
+        weight = nopy.calculate_formula(formula, self.OPERAND)
+        return self.get_profit_by_weight(weight, self.PROFIT, self.INDEX)
 
 
     def explain_formula(self, formula):
-        '''
-        Đưa ra danh mục đầu tư từng quý của công thức đầu vào.
-        '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
 
-        weight = _calculate_formula(formula, self.__OPERAND)
-        temp_profit = 1.0
-        for i in range(self.__INDEX.shape[0]-2, -1, -1):
-            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
-            max_ = np.where(temp == np.max(temp))[0] + self.__INDEX[i]
-            if max_.shape[0] == 1:
-                temp_profit *= self.__PROFIT[max_[0]]
-                print("Quý thứ", self.__INDEX.shape[0]-1-i, "đầu tư", self.__TRAIN_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__PROFIT[max_[0]])
-            else:
-                print("Quý thứ", self.__INDEX.shape[0]-1-i, "không đầu tư")
+        weight = nopy.calculate_formula(formula, self.OPERAND)
 
-        weight = _calculate_formula(formula, self.__TEST_OPERAND)
-        max_ = np.where(weight == np.max(weight))[0]
-        if max_.shape[0] == 1:
-            temp_profit_2 = temp_profit * self.__TEST_PROFIT[max_[0]]
-            print("Quý thứ", self.__INDEX.shape[0], "đầu tư", self.__TEST_DATA.iloc[max_[0]]["SYMBOL"], "lãi", self.__TEST_PROFIT[max_[0]])
-        else:
-            temp_profit_2 = temp_profit
-            print("Quý thứ", self.__INDEX.shape[0], "không đầu tư")
-
-        print("Lợi nhuận trung bình nhân (chưa tính lần đầu tư cuối):", temp_profit**(1.0/(self.__INDEX.shape[0]-1)))
-        print("Lợi nhuận trung bình nhân (đã tính lần đầu tư cuối):", temp_profit_2**(1.0/(self.__INDEX.shape[0])))
-
-
-    def explain_f(self, formula):
-        '''
-        Đưa ra danh mục đầu tư từng quý của công thức đầu vào.
-        '''
-        if type(formula) == str:
-            formula = self.convert_str_to_formula(formula)
-
-        weight = _calculate_formula(formula, self.__OPERAND)
-        Out_Time = []
-        Out_profit = []
+        min_time = self.TRAINING_DATA.iloc[-1]["TIME"]
+        Out_Time = np.arange(min_time, min_time+self.INDEX.shape[0]-1)
+        Out_Profit = []
         Out_Symbol = []
         Out_Value = []
-        for i in range(self.__INDEX.shape[0]-2, -1, -1):
-            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
-            max_ = np.where(temp == np.max(temp))[0] + self.__INDEX[i]
-            Out_Time.append(self.__INDEX.shape[0]-1-i+27)
+        for i in range(self.INDEX.shape[0]-2, -1, -1):
+            temp = weight[self.INDEX[i]:self.INDEX[i+1]]
+            max_temp = np.max(temp)
+            max_ = np.where(temp == max_temp)[0] + self.INDEX[i]
             if max_.shape[0] == 1:
-                Out_profit.append(self.__PROFIT[max_[0]])
-                Out_Symbol.append(self.__TRAIN_DATA.iloc[max_[0]]["SYMBOL"])
-                Out_Value.append(max(temp))
+                Out_Profit.append(self.PROFIT[max_[0]])
+                Out_Symbol.append(self.TRAINING_DATA.iloc[max_[0]]["SYMBOL"])
+                Out_Value.append(max_temp)
             else:
-                Out_profit.append(1.0)
+                Out_Profit.append(1.0)
                 Out_Symbol.append('NI')
-                Out_Value.append(10**200)
+                Out_Value.append(1.7976931348623157e+308)
 
-        Data_out = pd.DataFrame({'Out_Time':Out_Time,'Out_Symbol':Out_Symbol,'Out_profit':Out_profit,'Out_Value':Out_Value})
-        return Data_out
+        return pd.DataFrame({
+            'Out_Time': Out_Time,
+            'Out_Symbol': Out_Symbol,
+            'Out_Profit': Out_Profit,
+            'Out_Value': Out_Value
+        })
 
 
     def get_invested_company(self, formula):
-        '''
-        Đưa ra mã công ty đầu tư và lợi nhuận của chu kì đầu tư dùng để test.
-        '''
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
 
-        weight = _calculate_formula(formula, self.__TEST_OPERAND)
-        max_ = np.where(weight == np.max(weight))[0]
+        weight = nopy.calculate_formula(formula, self.TEST_OPERAND)
+        max_weight = np.max(weight)
+        max_ = np.where(weight == max_weight)[0]
         if max_.shape[0] == 1:
-            Com = self.__TEST_DATA.iloc[max_[0]]["SYMBOL"]
-            Prof = self.__TEST_PROFIT[max_[0]]
+            com = self.TEST_DATA.iloc[max_[0]]["SYMBOL"]
+            prof = self.TEST_PROFIT[max_[0]]
+            val = max_weight
         else:
-            Com = 'NI'
-            Prof = 1.0
+            com = "NI"
+            prof = 1.0
+            val = 1.7976931348623157e+308
 
-        return Com,Prof
+        return com, prof, val
 
 
     def convert_npy_file_to_DataFrame(self, path_or_2d_formula_array):
-        '''
-        Chuyển file .npy (hoặc mảng 2 chiều gồm các công thức dưới dạng array) thành DataFrame.
-        '''
         if type(path_or_2d_formula_array) == str:
             list_formula = np.load(path_or_2d_formula_array, allow_pickle=True)
         else:
@@ -232,89 +191,43 @@ class Method:
         list_profit = []
         list_next_invest = []
         list_next_profit = []
-
-        temp_symbol = self.__TEST_DATA["SYMBOL"]
-        temp_profit = self.__TEST_DATA["PROFIT"]
-
         for i in range(list_formula.shape[0]):
             formula = list_formula[i]
             list_str_formula.append(self.convert_formula_to_str(formula))
-            list_profit.append(self.get_formula_geomean_profit(formula))
-            weight = _calculate_formula(formula, self.__TEST_OPERAND)
-            max_ = np.where(weight == np.max(weight))[0]
-            if max_.shape[0] == 1:
-                next_invest = temp_symbol.iloc[max_[0]]
-                next_profit = temp_profit.iloc[max_[0]]
-            else:
-                next_invest = "NOT_INVEST_2"
-                next_profit = 1.0
-
-            list_next_invest.append(next_invest)
-            list_next_profit.append(next_profit)
+            list_profit.append(self.get_formula_profit(formula))
+            com, prof, val = self.get_invested_company(formula)
+            list_next_invest.append(com)
+            list_next_profit.append(prof)
 
         return pd.DataFrame({
             "formula": list_str_formula,
-            "geomean_profit": list_profit,
+            self.profit_method+"_profit": list_profit,
             "invest": list_next_invest,
             "profit": list_next_profit
         })
 
 
-    def get_company_value(self, formula):
-        '''
-        Đưa ra max value trong quý đầu tư.
-        '''
-        if type(formula) == str:
-            formula = self.convert_str_to_formula(formula)
-
-        weight = _calculate_formula(formula, self.__TEST_OPERAND)
-
-        return np.max(weight)
-
-
-    def get_value_invest(self, formula):
-        '''
-        Trả ra 1 mảng là các value max của từng quý.
-        '''
-        if type(formula) == str:
-            formula = self.convert_str_to_formula(formula)
-
-        weight = _calculate_formula(formula, self.__OPERAND)
-        a = np.zeros(self.__INDEX.shape[0])
-
-        for i in range(self.__INDEX.shape[0]-2, -1, -1):
-            temp = weight[self.__INDEX[i]:self.__INDEX[i+1]]
-            max_ = np.argmax(temp)
-            a[self.__INDEX.shape[0]-2-i] = temp[max_]
-
-        weight = _calculate_formula(formula, self.__TEST_OPERAND)
-        max_ = np.argmax(weight)
-        a[self.__INDEX.shape[0]-1] = weight[max_]
-
-        return a
-    
-
-    def find_threshold(self, formula):
+    def find_threshold(self, formula, target):
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
         
-        return _find_max_threshold(formula, self.__OPERAND, self.__INDEX, self.__PROFIT)
+        return nopy.find_max_threshold(formula, self.OPERAND, self.INDEX, self.PROFIT, target)
     
 
     def get_value_invest_threshold(self, formula, threshold):
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
         
-        a, b, c = _get_value_invest_threshold(formula, threshold, self.__TEST_OPERAND, self.__TEST_PROFIT)
+        a, b, c = nopy.get_value_invest_threshold(formula, threshold, self.TEST_OPERAND, self.TEST_PROFIT)
         if b == -1:
             return a, "BANK", c
         elif b == -2:
             return a, "NI", c
         else:
-            return a, self.__TEST_DATA.iloc[b]["SYMBOL"], c
+            return a, self.TEST_DATA.iloc[b]["SYMBOL"], c
             
 
-    def xuat_file(self, df:pd.DataFrame):
+    def value_limit_filter(self, df:pd.DataFrame, target_profit):
         """
         Đầu vào: 
             * dataframe có cột formula
@@ -324,14 +237,13 @@ class Method:
         data["geomean_profit"] = np.full(data.shape[0], -1.0)
         data["Value_limit"] = np.full(data.shape[0], -1.7976931348623157e+308)
         data["Geo_limit"] = np.full(data.shape[0], -1.0)
-        data["Time_invest"] = np.full(data.shape[0], self.__TEST_DATA.iloc[0]["TIME"])
+        data["Time_invest"] = np.full(data.shape[0], self.TEST_DATA.iloc[0]["TIME"])
         data["Value_invest"] = np.full(data.shape[0], 0.0)
         data["Com_invest"] = np.full(data.shape[0], "NI")
         data["Profit_invest"] = np.full(data.shape[0], 0.0)
         for i in range(data.shape[0]):
-            # data["geomean_profit"][i] = self.get_formula_geomean_profit(data["formula"][i])
-            # data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
-            data["geomean_profit"][i], data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i])
-            data["Value_invest"][i], data["Com_invest"][i], data["Profit_invest"][i] = self.get_value_invest_threshold(data["formula"][i], data["Value_limit"][i])
+            data["geomean_profit"][i], data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i], target_profit)
+            if data["Geo_limit"][i] > 0.0:
+                data["Value_invest"][i], data["Com_invest"][i], data["Profit_invest"][i] = self.get_value_invest_threshold(data["formula"][i], data["Value_limit"][i])
         
-        return data
+        return data[data["Geo_limit"] > 0.0]
