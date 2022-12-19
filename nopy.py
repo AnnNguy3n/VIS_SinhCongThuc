@@ -390,7 +390,7 @@ def find_max_threshold(formula, operand, index, profit, target, profit_method_in
 
             har_ = (index.shape[0]-1)/temp_denomirator
             if har_ > max_profit:
-                max_profit = geo_
+                max_profit = har_
                 x_nguong = x
 
         return abcxyz_mean_profit, x_nguong, max_profit
