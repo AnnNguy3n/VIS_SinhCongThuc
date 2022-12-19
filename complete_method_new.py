@@ -13,10 +13,8 @@ warnings.filterwarnings("ignore")
 
 
 class CompleteMethod_new(Method):
-    def __init__(self, data: pd.DataFrame, path_save: str, num_training: int, profit_method: str, test_start:int) -> None:
+    def __init__(self, data: pd.DataFrame, path_save: str, num_training: int, profit_method: str) -> None:
         super().__init__(data, path_save, num_training, profit_method)
-
-        self.num_test = self.INDEX.shape[0] - test_start + 1
 
 
     def fill_operand(self, formula, struct, idx, temp_0, temp_op, temp_1, target, mode, add_sub_done, mul_div_done):
@@ -60,7 +58,7 @@ class CompleteMethod_new(Method):
                     else:
                         temp_1_new = temp_1 / self.OPERAND[valid_operand]
 
-                if idx + 1 == formula.shape[0] or formula[idx+1] < 2:
+                if idx + 1 == formula.shape[0] or (idx+2) in struct[:,2]:
                     if temp_op_new == 0:
                         temp_0_new = temp_0 + temp_1_new
                     else:
@@ -71,15 +69,13 @@ class CompleteMethod_new(Method):
                 if idx + 1 == formula.shape[0]:
                     temp_0_new[np.isnan(temp_0_new)] = -1.7976931348623157e+308
                     temp_0_new[np.isinf(temp_0_new)] = -1.7976931348623157e+308
-                    valid_idx, check_target = nopy.get_valid_idxsss_and_targetsss(temp_0_new, self.PROFIT, self.INDEX, self.num_test, target, self.profit_method_index)
-                    if valid_idx.shape[0] > 0:
-                        temp_list_formula = np.array([formula]*valid_idx.shape[0])
-                        temp_list_formula[:,idx] = valid_operand[valid_idx]
-                        x_1 = self.count[0]
-                        x_2 = self.count[0] + valid_idx.shape[0]
-                        self.list_formula[0][x_1:x_2] = temp_list_formula
-                        self.list_formula[1][x_1:x_2] = check_target
-                        self.count[0:3:2] += valid_idx.shape[0]
+                    temp_profits = nopy.get_profitsss_by_weightsss(temp_0_new, self.PROFIT, self.INDEX, self.get_profit_by_weight)
+                    valid_formula = np.where(temp_profits>=target)[0]
+                    if valid_formula.shape[0] > 0:
+                        temp_list_formula = np.array([formula]*valid_formula.shape[0])
+                        temp_list_formula[:,idx] = valid_operand[valid_formula]
+                        self.list_formula[self.count[0]:self.count[0]+valid_formula.shape[0]] = temp_list_formula
+                        self.count[0:3:2] += valid_formula.shape[0]
 
                     self.last_formula[:] = formula[:]
                     self.last_formula[idx] = self.OPERAND.shape[0]
@@ -165,9 +161,9 @@ class CompleteMethod_new(Method):
             print("Đang chạy sinh công thức có số toán hạng là ", num_operand, ". . .")
 
             if self.OPERAND.shape[0] <= 256:
-                self.list_formula = [np.full((formula_file_size+self.OPERAND.shape[0], 2*num_operand), 0, dtype=np.uint8), np.full((formula_file_size+self.OPERAND.shape[0], self.num_test), 0, dtype=np.uint8), -1]
+                self.list_formula = np.full((formula_file_size+self.OPERAND.shape[0], 2*num_operand), 0, dtype=np.uint8)
             else:
-                self.list_formula = [np.full((formula_file_size+self.OPERAND.shape[0], 2*num_operand), 0, dtype=np.uint16), np.full((formula_file_size+self.OPERAND.shape[0], self.num_test), 0, dtype=np.uint8), -1]
+                self.list_formula = np.full((formula_file_size+self.OPERAND.shape[0], 2*num_operand), 0, dtype=np.uint16)
 
             list_uoc_so = []
             for i in range(1, num_operand+1):
@@ -202,7 +198,7 @@ class CompleteMethod_new(Method):
         while True:
             pathSave = self.path + f"high_profit_{num_operand}_" + datetime.now().strftime("%d_%m_%Y_%H_%M_%S") + ".npy"
             if not os.path.exists(pathSave):
-                np.save(pathSave, [self.list_formula[0][0:self.count[0]], self.list_formula[1][0:self.count[0]], -1])
+                np.save(pathSave, self.list_formula[0:self.count[0]])
                 self.count[0] = 0
                 print(Fore.LIGHTGREEN_EX+"Đã lưu công thức", Style.RESET_ALL)
                 if self.count[2] >= self.count[3]:
