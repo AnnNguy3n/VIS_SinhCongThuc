@@ -341,6 +341,10 @@ def get_threshold(weight, index, profit, profit_method_index):
 
                 thresholds[index.shape[0]-2-i] = max_temp
                 profits_nguong[index.shape[0]-2-i] = profit[max_[0]]
+            else:
+                temp_denomirator += 1.0
+                thresholds[index.shape[0]-2-i] = 1.7976931348623157e+308
+                profits_nguong[index.shape[0]-2-i] = 1.0
 
         min_ = np.min(thresholds)
         x_nguong = min_ - np.max(np.array([1e-9, 1e-9*np.abs(min_)]))
