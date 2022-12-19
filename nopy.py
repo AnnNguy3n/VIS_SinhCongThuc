@@ -298,54 +298,102 @@ def get_valid_op(formula, struct, idx, start):
 
     if idx // 2 <= struct[0,1] // 2:
         valid_op[1] = 0
-    
+
     return np.where(valid_op == 1)[0] + 2
 
 
 @njit
-def get_threshold(weight, index, profit):
-    temp_profit = 1.0
+def get_threshold(weight, index, profit, profit_method_index):
     thresholds = np.zeros(index.shape[0]-1, dtype=np.float64)
     profits_nguong = np.zeros(index.shape[0]-1)
-    for i in range(index.shape[0]-2, -1, -1):
-        temp = weight[index[i]:index[i+1]]
-        max_temp = np.max(temp)
-        max_ = np.where(temp == max_temp)[0] + index[i]
-        if max_.shape[0] == 1:
-            temp_profit *= profit[max_[0]]
-            thresholds[index.shape[0]-2-i] = max_temp
-            profits_nguong[index.shape[0]-2-i] = profit[max_[0]]
-        else:
-            thresholds[index.shape[0]-2-i] = 1e200
-            profits_nguong[index.shape[0]-2-i] = 1.0
-    
-    min_ = np.min(thresholds)
-    x_nguong = min_ - np.max(np.array([1e-9, 1e-9*np.abs(min_)]))
-    return temp_profit**(1.0/(index.shape[0]-1)), thresholds, profits_nguong, x_nguong
+    if profit_method_index == 0: # geomean
+        temp_profit = 1.0
+        for i in range(index.shape[0]-2, -1, -1):
+            temp = weight[index[i]:index[i+1]]
+            max_temp = np.max(temp)
+            max_ = np.where(temp == max_temp)[0] + index[i]
+            if max_.shape[0] == 1:
+                if profit[max_[0]] == 0.0:
+                    temp_profit = 0.0
+                else:
+                    temp_profit *= profit[max_[0]]
+                thresholds[index.shape[0]-2-i] = max_temp
+                profits_nguong[index.shape[0]-2-i] = profit[max_[0]]
+            else:
+                thresholds[index.shape[0]-2-i] = 1.7976931348623157e+308
+                profits_nguong[index.shape[0]-2-i] = 1.0
+
+        min_ = np.min(thresholds)
+        x_nguong = min_ - np.max(np.array([1e-9, 1e-9*np.abs(min_)]))
+        return temp_profit**(1.0/(index.shape[0]-1)), thresholds, profits_nguong, x_nguong
+
+    elif profit_method_index == 1: # harmean
+        temp_denomirator = 0.0
+        for i in range(index.shape[0]-2, -1, -1):
+            temp = weight[index[i]:index[i+1]]
+            max_temp = np.max(temp)
+            max_ = np.where(temp == max_temp)[0] + index[i]
+            if max_.shape[0] == 1:
+                if profit[max_[0]] == 0.0:
+                    temp_denomirator = 1.7976931348623157e+308
+                else:
+                    temp_denomirator += 1.0/profit[max_[0]]
+
+                thresholds[index.shape[0]-2-i] = max_temp
+                profits_nguong[index.shape[0]-2-i] = profit[max_[0]]
+
+        min_ = np.min(thresholds)
+        x_nguong = min_ - np.max(np.array([1e-9, 1e-9*np.abs(min_)]))
+        return (index.shape[0]-1)/temp_denomirator, thresholds, profits_nguong, x_nguong
 
 
 @njit
-def find_max_threshold(formula, operand, index, profit, target):
+def find_max_threshold(formula, operand, index, profit, target, profit_method_index):
     weight = calculate_formula(formula, operand)
-    geomean_profit, thresholds, profits_nguong, x_nguong = get_threshold(weight, index, profit)
-    if geomean_profit < target:
-        return geomean_profit, 0.0, 0.0
+    abcxyz_mean_profit, thresholds, profits_nguong, x_nguong = get_threshold(weight, index, profit, profit_method_index)
+    if abcxyz_mean_profit < target:
+        return abcxyz_mean_profit, 0.0, 0.0
 
-    max_profit = geomean_profit
-    for x in thresholds:
-        temp_profit = 1.0
-        for i in range(0, thresholds.shape[0]):
-            if thresholds[i] > x:
-                temp_profit *= profits_nguong[i]
-            else:
-                temp_profit *= 1.01
-        
-        geo_ = temp_profit**(1.0/(index.shape[0]-1))
-        if geo_ > max_profit:
-            max_profit = geo_
-            x_nguong = x
-    
-    return geomean_profit, x_nguong, max_profit
+    max_profit = abcxyz_mean_profit
+    if profit_method_index == 0: # geomean
+        for x in thresholds:
+            temp_profit = 1.0
+            for i in range(thresholds.shape[0]):
+                if thresholds[i] > x:
+                    if profits_nguong[i] == 0.0:
+                        temp_profit = 0.0
+                        break
+                    else:
+                        temp_profit *= profits_nguong[i]
+                else:
+                    temp_profit *= 1.01
+
+            geo_ = temp_profit**(1.0/(index.shape[0]-1))
+            if geo_ > max_profit:
+                max_profit = geo_
+                x_nguong = x
+
+        return abcxyz_mean_profit, x_nguong, max_profit
+
+    if profit_method_index == 1: # harmean
+        for x in thresholds:
+            temp_denomirator = 0.0
+            for i in range(thresholds.shape[0]):
+                if thresholds[i] > x:
+                    if profits_nguong[i] == 0.0:
+                        temp_denomirator = 1.7976931348623157e+308
+                        break
+                    else:
+                        temp_denomirator += 1.0/profits_nguong[i]
+                else:
+                    temp_denomirator += 1.0/1.01
+
+            har_ = (index.shape[0]-1)/temp_denomirator
+            if har_ > max_profit:
+                max_profit = geo_
+                x_nguong = x
+
+        return abcxyz_mean_profit, x_nguong, max_profit
 
 
 @njit

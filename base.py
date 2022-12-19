@@ -210,14 +210,14 @@ class Method:
     def find_threshold(self, formula, target):
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
-        
-        return nopy.find_max_threshold(formula, self.OPERAND, self.INDEX, self.PROFIT, target)
+
+        return nopy.find_max_threshold(formula, self.OPERAND, self.INDEX, self.PROFIT, target, self.profit_method_index)
     
 
     def get_value_invest_threshold(self, formula, threshold):
         if type(formula) == str:
             formula = self.convert_str_to_formula(formula)
-        
+
         a, b, c = nopy.get_value_invest_threshold(formula, threshold, self.TEST_OPERAND, self.TEST_PROFIT)
         if b == -1:
             return a, "BANK", c
@@ -229,21 +229,25 @@ class Method:
 
     def value_limit_filter(self, df:pd.DataFrame, target_profit):
         """
-        Đầu vào: 
+        Đầu vào:
             * dataframe có cột formula
+            * Những công thức có profit nhỏ hơn target, profit_limit sẽ được đặt thành 0.
         """
+        key1 = self.profit_method + "_profit"
+        key2_ = key1[0:3] + "_limit"
+        key2 = key2_[0].upper() + key2_[1:]
 
         data = df[["formula"]]
-        data["geomean_profit"] = np.full(data.shape[0], -1.0)
+        data[key1] = np.full(data.shape[0], -1.0)
         data["Value_limit"] = np.full(data.shape[0], -1.7976931348623157e+308)
-        data["Geo_limit"] = np.full(data.shape[0], -1.0)
+        data[key2] = np.full(data.shape[0], -1.0)
         data["Time_invest"] = np.full(data.shape[0], self.TEST_DATA.iloc[0]["TIME"])
         data["Value_invest"] = np.full(data.shape[0], 0.0)
         data["Com_invest"] = np.full(data.shape[0], "NI")
         data["Profit_invest"] = np.full(data.shape[0], 0.0)
         for i in range(data.shape[0]):
-            data["geomean_profit"][i], data["Value_limit"][i], data["Geo_limit"][i] = self.find_threshold(data["formula"][i], target_profit)
-            if data["Geo_limit"][i] > 0.0:
+            data[key1][i], data["Value_limit"][i], data[key2][i] = self.find_threshold(data["formula"][i], target_profit)
+            if data[key2][i] > 0.0:
                 data["Value_invest"][i], data["Com_invest"][i], data["Profit_invest"][i] = self.get_value_invest_threshold(data["formula"][i], data["Value_limit"][i])
-        
-        return data[data["Geo_limit"] > 0.0]
+
+        return data[data[key2] > 0.0]
