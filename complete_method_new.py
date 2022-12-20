@@ -118,20 +118,20 @@ class CompleteMethod_new(Method):
                 new_formula[idx] = op
                 if op == 3:
                     new_mul_div_done = True
-                    for i in range(idx+2, 2*struct[0,1]-1, 2):
+                    for i in range(idx+2, 2*new_struct[0,1]-1, 2):
                         new_formula[i] = 3
 
-                    for i in range(1, struct.shape[0]):
-                        for j in range(struct[0,1]-1):
-                            new_formula[struct[i,2] + 2*j] = new_formula[1+2*j]
+                    for i in range(1, new_struct.shape[0]):
+                        for j in range(new_struct[0,1]-1):
+                            new_formula[new_struct[i,2] + 2*j + 1] = new_formula[2+2*j]
                 else:
                     new_struct[:,3] += 1
                     new_mul_div_done = False
                     if idx == 2*new_struct[0,1] - 2:
                         new_mul_div_done = True
-                        for i in range(1, struct.shape[0]):
-                            for j in range(struct[0,1]-1):
-                                new_formula[struct[i,2] + 2*j] = new_formula[1+2*j]
+                        for i in range(1, new_struct.shape[0]):
+                            for j in range(new_struct[0,1]-1):
+                                new_formula[new_struct[i,2] + 2*j + 1] = new_formula[2+2*j]
 
                 if self.fill_operand(new_formula, new_struct, idx+1, temp_0, temp_op, temp_1, target, 1, add_sub_done, new_mul_div_done):
                     return True
