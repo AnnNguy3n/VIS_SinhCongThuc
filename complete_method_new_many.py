@@ -182,7 +182,7 @@ class CompleteMethod_new_many(Method):
             for i in range(start_uoc_idx, len(list_uoc_so)):
                 print("Số phần tử trong 1 cụm", list_uoc_so[i])
                 struct = np.array([[0, list_uoc_so[i], 1+2*list_uoc_so[i]*j, 0] for j in range(num_operand//list_uoc_so[i])])
-                if num_operand != last_operand:
+                if num_operand != last_operand or i != self.last_uoc_idx:
                     self.last_formula = formula.copy()
                     self.last_uoc_idx = i
 
