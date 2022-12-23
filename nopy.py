@@ -404,11 +404,11 @@ def find_max_threshold(formula, operand, index, profit, target, profit_method_in
 def get_value_invest_threshold(formula, threshold, test_operand, test_profit):
     weight = calculate_formula(formula, test_operand)
     max_value = np.max(weight)
-    if max_value <= threshold:
-        return max_value, -1, 1.01
+    # if max_value <= threshold:
+    #     return max_value, -1, 1.01
+    # else:
+    max_ = np.where(weight == max_value)[0]
+    if max_.shape[0] == 1:
+        return max_value, max_[0], test_profit[max_[0]]
     else:
-        max_ = np.where(weight == max_value)[0]
-        if max_.shape[0] == 1:
-            return max_value, max_[0], test_profit[max_[0]]
-        else:
-            return 0.0, -2, 1.0
+        return 0.0, -2, 1.0
