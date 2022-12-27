@@ -152,7 +152,7 @@ class Method:
             else:
                 Out_Profit.append(1.0)
                 Out_Symbol.append('NI')
-                Out_Value.append(1.7976931348623157e+308)
+                Out_Value.append(max_temp)
 
         return pd.DataFrame({
             'Out_Time': Out_Time,
