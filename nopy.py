@@ -411,4 +411,4 @@ def get_value_invest_threshold(formula, threshold, test_operand, test_profit):
     if max_.shape[0] == 1:
         return max_value, max_[0], test_profit[max_[0]]
     else:
-        return 0.0, -2, 1.0
+        return max_value, -2, 1.0
