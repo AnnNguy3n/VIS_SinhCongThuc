@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-
+""""""
 
 @njit
 def calculate_formula(formula, operand):
