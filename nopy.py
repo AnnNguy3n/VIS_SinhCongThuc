@@ -64,6 +64,15 @@ def get_harmean_profit_by_weight(weight, profit, index):
 
 
 @njit
+def get_bitmean_profit_by_weight(weight, profit, index):
+    com_los = np.where(profit < 1.0)[0]
+    com_win = np.where(profit > 1.0)[0]
+    max_los = np.max(weight[com_los])
+    a = np.count_nonzero(weight[com_win] < max_los)
+    return 1 - (a/com_win.shape[0])
+
+
+@njit
 def get_valid_operand(formula, struct, idx, start, num_operand):
     valid_operand = np.full(num_operand, 0)
     valid_operand[start:num_operand] = 1
@@ -263,6 +272,18 @@ def sub_get_valid_idxsss_and_targetsss(weight, profit, index, num_test, profit_m
                 overall_profit[num_test_1-i] = temp_deno
 
         return overall_profit
+    
+    elif profit_method_index == 2:
+        for i in range(num_test_1, -1, -1):
+            temp_weight_arr = weight[index[i]:index[-1]]
+            temp_profit_arr = profit[index[i]:index[-1]]
+            com_los = np.where(temp_profit_arr < 1.0)[0]
+            com_win = np.where(temp_profit_arr > 1.0)[0]
+            max_los = np.max(temp_weight_arr[com_los])
+            a = np.count_nonzero(temp_weight_arr[com_win] < max_los)
+            overall_profit[num_test_1-i] = 1 - (a/com_win.shape[0])
+
+        return overall_profit
 
 
 @njit
@@ -279,6 +300,9 @@ def get_valid_idxsss_and_targetsss(weights, profit, index, num_test, target, pro
     elif profit_method_index == 1:
         for i in range(num_test):
             two_d_profits[:,i] = (test_start+i) / two_d_profits[:,i]
+    
+    elif profit_method_index == 2:
+        pass
 
     check_target = np.where(two_d_profits >= target, 1, 0)
     check_valid = np.full(weights.shape[0], 0)
@@ -349,6 +373,9 @@ def get_threshold(weight, index, profit, profit_method_index):
         min_ = np.min(thresholds)
         x_nguong = min_ - np.max(np.array([1e-9, 1e-9*np.abs(min_)]))
         return (index.shape[0]-1)/temp_denomirator, thresholds, profits_nguong, x_nguong
+    
+    elif profit_method_index == 2: # bitmean
+        raise
 
 
 @njit
@@ -398,6 +425,9 @@ def find_max_threshold(formula, operand, index, profit, target, profit_method_in
                 x_nguong = x
 
         return abcxyz_mean_profit, x_nguong, max_profit
+    
+    if profit_method_index == 2: # bitmean
+        raise
 
 
 @njit

@@ -79,7 +79,7 @@ class Method:
 
         # Profit method
         self.profit_method = profit_method
-        self.profit_method_index = ["geomean", "harmean"].index(profit_method)
+        self.profit_method_index = ["geomean", "harmean", "bitmean"].index(profit_method)
         self.get_profit_by_weight = getattr(nopy, f"get_{profit_method}_profit_by_weight")
 
 
@@ -176,7 +176,7 @@ class Method:
         else:
             com = "NI"
             prof = 1.0
-            val = 1.7976931348623157e+308
+            val = max_weight
 
         return com, prof, val
 
