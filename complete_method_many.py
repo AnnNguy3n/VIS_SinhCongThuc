@@ -14,6 +14,12 @@ warnings.filterwarnings("ignore")
 
 class CompleteMethod_many(Method):
     def __init__(self, data: pd.DataFrame, path_save: str, num_training: int, profit_method: str, test_start:int) -> None:
+        """
+        * Test_start: chu kì thứ bao nhiêu thì bắt đầu test. Ví dụ data năm từ 2007 đến 2022, bắt đầu test từ 2013 thì nhập test_start = 7
+            Test_start = chu kì muốn bắt đầu test - chu kì đầu tiên + 1
+        * num_training: dùng để cắt dữ liệu. Nếu muốn chạy full các chu kì trong data thì num_training = số chu kì - 1
+        """
+        
         super().__init__(data, path_save, num_training, profit_method)
 
         self.num_test = self.INDEX.shape[0] - test_start + 1
