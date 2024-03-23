@@ -72,6 +72,7 @@ class BruteforceBase(Base):
                  DATA,
                  LABEL,
                  INTEREST,
+                 VALUEARG_THRESHOLD,
                  NUM_CYC,
                  MAX_CYC,
                  MIN_CYC,
@@ -126,7 +127,7 @@ class BruteforceBase(Base):
         self.count_n_temp = 0
         self.save_count = 0
 
-        self.VALUEARG_THRESHOLD = 0.0
+        self.BOOL_ARG = self.VALUEARG >= VALUEARG_THRESHOLD
 
     def add_to_temp_storage(self, weights, formulas):
         len_ = len(weights)
@@ -234,7 +235,7 @@ class BruteforceBase(Base):
                 self.num_data_operand, self.list_gvf, self.num_cycle,
                 self.MARKET_CAP, self.save_type,
                 self.INDEX, self.PROFIT, self.PROFIT_RANK, self.SYMBOL, self.INTEREST,
-                self.PROFIT_RANK_NI, self.VALUEARG, self.VALUEARG_THRESHOLD
+                self.PROFIT_RANK_NI, self.BOOL_ARG
             )
             list_args.append(args)
 
@@ -262,8 +263,7 @@ def handler_process(args):
     SYMBOL = args[10]
     INTEREST = args[11]
     PROFIT_RANK_NI = args[12]
-    VALUEARG = args[13]
-    VALUEARG_THRESHOLD = args[14]
+    BOOL_ARG = args[13]
 
     list_data = [[] for _ in range(num_cycle)]
     for k in range(len(list_weight)):
@@ -290,14 +290,14 @@ def handler_process(args):
                                               PROFIT,
                                               INTEREST,
                                               num_cycle)
-            elif func == "multi_investment_strictly":
+            elif func == "multi_investment_strictly"\
+                or func == "multi_investment_strictly_1":
                 result = gvf.multi_investment_strictly(weight,
                                                        INDEX,
                                                        PROFIT,
                                                        SYMBOL,
                                                        INTEREST,
-                                                       VALUEARG,
-                                                       VALUEARG_THRESHOLD,
+                                                       BOOL_ARG,
                                                        num_cycle)
             elif func == "find_slope":
                 result = gvf.find_slope(weight,
