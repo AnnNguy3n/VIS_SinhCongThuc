@@ -14,6 +14,7 @@ class Generator(BruteforceBase):
                  DATA,
                  LABEL,
                  INTEREST,
+                 VALUEARG_THRESHOLD,
                  NUM_CYC,
                  MAX_CYC,
                  MIN_CYC,
@@ -26,7 +27,7 @@ class Generator(BruteforceBase):
                  PERIODIC_SAVE_TIME=1800,
                  MAX_OPR_PER_FML=100):
         METHOD = 1
-        super().__init__(DB_PATH, SAVE_TYPE, DATA, LABEL, INTEREST, NUM_CYC, MAX_CYC, MIN_CYC, METHOD, LIST_FUNC, NUM_PROCESS, FILTERS, DIV_WGT_BY_MC, TARGET, TMP_STRG_SIZE, PERIODIC_SAVE_TIME, MAX_OPR_PER_FML)
+        super().__init__(DB_PATH, SAVE_TYPE, DATA, LABEL, INTEREST, VALUEARG_THRESHOLD, NUM_CYC, MAX_CYC, MIN_CYC, METHOD, LIST_FUNC, NUM_PROCESS, FILTERS, DIV_WGT_BY_MC, TARGET, TMP_STRG_SIZE, PERIODIC_SAVE_TIME, MAX_OPR_PER_FML)
 
     def generate(self, list_required_operand=[]):
         # Checkpoint
