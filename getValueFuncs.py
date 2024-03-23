@@ -519,5 +519,6 @@ DESCRIPTION = {
     "multi_investment": "Nguong, GeoNgn, HarNgn, ProNgn".split(", "),
     "multi_investment_strictly": "Nguong2, GeoNgn2, HarNgn2, ProNgn2, hNguong2".split(", "),
     "find_slope": "Slope_avg, Slope_wgtavg".split(", "),
+    "multi_investment_strictly_1": "ValGeoNgn2, GeoNgn2, ValHarNgn2, HarNgn2".split(", ")
     # "sinhF_multi_investment_strictly": ["GeoNgn2"]
 }
