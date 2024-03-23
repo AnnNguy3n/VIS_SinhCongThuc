@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+from evalFuncs import multi_investment_strictly as mis
 
 
 @njit
@@ -244,13 +245,23 @@ def multi_investment(WEIGHT,
 
 
 @njit
+def multi_investment_strictly_1(WEIGHT,
+                                INDEX,
+                                PROFIT,
+                                SYMBOL,
+                                INTEREST,
+                                BOOL_ARG,
+                                NUM_CYCLE=1):
+    return [mis(WEIGHT, INDEX, PROFIT, SYMBOL, INTEREST, BOOL_ARG)]
+
+
+@njit
 def multi_investment_strictly(WEIGHT,
                               INDEX,
                               PROFIT,
                               SYMBOL,
                               INTEREST,
-                              VALUEARG,
-                              VALUEARG_THRESHOLD,
+                              BOOL_ARG,
                               NUM_CYCLE,
                               n_val_per_cyc=5):
     """
@@ -276,7 +287,7 @@ def multi_investment_strictly(WEIGHT,
     ProNgn2 = np.zeros(NUM_CYCLE)
     hNguong2 = np.zeros(NUM_CYCLE)
     temp_profit = np.zeros(size-1)
-    bool_arg = VALUEARG >= VALUEARG_THRESHOLD
+    bool_arg = BOOL_ARG
     for ii in range(len(temp_arr_loop)):
         v = temp_arr_loop[ii]
         temp_profit[:] = 0.0
@@ -496,12 +507,11 @@ def sinhF_multi_investment_strictly(WEIGHT,
                                     PROFIT,
                                     SYMBOL,
                                     INTEREST,
-                                    VALUEARG,
-                                    VALUEARG_THRESHOLD):
+                                    BOOL_ARG):
     """
     Output: GeoNgn2
     """
-    return multi_investment_strictly(WEIGHT, INDEX, PROFIT, SYMBOL, INTEREST, VALUEARG, VALUEARG_THRESHOLD, 1, 5)[0][1]
+    return multi_investment_strictly(WEIGHT, INDEX, PROFIT, SYMBOL, INTEREST, BOOL_ARG, 1, 5)[0][1]
 
 
 DESCRIPTION = {
