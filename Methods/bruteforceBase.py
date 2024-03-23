@@ -290,8 +290,7 @@ def handler_process(args):
                                               PROFIT,
                                               INTEREST,
                                               num_cycle)
-            elif func == "multi_investment_strictly"\
-                or func == "multi_investment_strictly_1":
+            elif func == "multi_investment_strictly":
                 result = gvf.multi_investment_strictly(weight,
                                                        INDEX,
                                                        PROFIT,
@@ -299,6 +298,14 @@ def handler_process(args):
                                                        INTEREST,
                                                        BOOL_ARG,
                                                        num_cycle)
+            elif func == "multi_investment_strictly_1":
+                result = gvf.multi_investment_strictly_1(weight,
+                                                         INDEX,
+                                                         PROFIT,
+                                                         SYMBOL,
+                                                         INTEREST,
+                                                         BOOL_ARG,
+                                                         1)
             elif func == "find_slope":
                 result = gvf.find_slope(weight,
                                         INDEX,
